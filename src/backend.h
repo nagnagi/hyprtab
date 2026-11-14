@@ -113,6 +113,8 @@ private:
     QTimer *m_focusTimer = nullptr;
     QTimer *m_altTimer = nullptr;
     bool m_altDownAtShow = false;
+    bool m_altContext = false; // shown via next/prev (Alt-Tab bind) rather than plain show
+    int m_altProbe = -1;       // -1 unknown, 0 = hl.is_key_down unsupported, 1 = supported
     QElapsedTimer m_visibleSince;
     int m_currentIndex = 0;
     bool m_visible = false;

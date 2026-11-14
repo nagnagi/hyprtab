@@ -469,32 +469,69 @@ void Backend::refresh() {
     // While Alt is still held (mid Alt-Tab gesture), never auto-close.
     if (m_visible && m_visibleSince.isValid() && m_visibleSince.elapsed() > 1000
         && !activeAddr.isEmpty() && activeAddr != m_selfAddress
-        && !(m_altDownAtShow && isAltDown())) {
+        && !isAltDown()) {
         cancel();
     }
 }
 
 // Hyprland >= 0.57 only: hyprctl eval does not print return values, so the
 // result is passed through a temp file. Returns false on older versions,
-// which simply disables the quick Alt-release commit.
+// which simply disables the quick Alt-release commit. m_altProbe caches
+// whether hl.is_key_down exists so callers can tell "key up" apart from
+// "unsupported".
+//
+// The temp file is deleted before each eval and only an exact "true"/"false"
+// is accepted: if the Lua errors (e.g. hl.is_key_down missing) hyprctl eval
+// can still exit 0, and without the unlink a stale "true" would make Alt look
+// permanently held — the panel would never commit nor auto-cancel.
 bool Backend::isAltDown() {
+    if (m_altProbe == 0)
+        return false;
     const QString tmp = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
-                        + QStringLiteral("/hyprtab-alt-down");
+                        + QStringLiteral("/hyprtab-alt-down-%1").arg(QCoreApplication::applicationPid());
+    QFile::remove(tmp);
     const QString code = QStringLiteral(
-        "local f=io.open(\"%1\",\"w\") "
-        "f:write(tostring(hl.is_key_down(\"Alt_L\") or hl.is_key_down(\"Alt_R\"))) "
+        "local ok, down = pcall(function() "
+        "  for _, n in ipairs({'Alt_L','Alt_R','ALT_L','ALT_R','alt_l','alt_r'}) do "
+        "    if hl.is_key_down(n) then return true end "
+        "  end "
+        "  return false "
+        "end) "
+        "local f = io.open('%1', 'w') "
+        "if ok then f:write(down and 'true' or 'false') else f:write('err') end "
         "f:close()").arg(tmp);
     QProcess p;
     p.start(QStringLiteral("hyprctl"), {QStringLiteral("eval"), code});
-    if (!p.waitForStarted(1000) || !p.waitForFinished(2000) || p.exitCode() != 0)
+    if (!p.waitForStarted(1000) || !p.waitForFinished(2000) || p.exitCode() != 0) {
+        m_altProbe = 0;
         return false;
+    }
     QFile f(tmp);
-    if (!f.open(QIODevice::ReadOnly))
+    if (!f.open(QIODevice::ReadOnly)) {
+        m_altProbe = 0;
         return false;
-    return f.readAll().trimmed() == "true";
+    }
+    const QByteArray content = f.readAll().trimmed();
+    if (content == "true") {
+        m_altProbe = 1;
+        return true;
+    }
+    if (content == "false") {
+        m_altProbe = 1;
+        return false;
+    }
+    m_altProbe = 0; // "err" or garbage: is_key_down not usable on this Hyprland
+    return false;
 }
 
 void Backend::show() {
+    // Record Alt state before refresh(): refresh() runs several synchronous
+    // hyprctl calls and can take long enough for a quick Alt-Tab release to
+    // slip past us. When invoked via next/prev (the Alt-Tab bind) and key
+    // polling is supported, assume Alt was held at show time even if
+    // isAltDown() already reports false.
+    const bool downNow = isAltDown();
+    m_altDownAtShow = (m_altProbe == 1) && (m_altContext || downNow);
     refresh();
     const int n = m_model.rowCount();
     if (n == 0) {
@@ -504,18 +541,19 @@ void Backend::show() {
     // First Alt-Tab lands on the previously focused window (MRU index 1).
     setCurrentIndex(n > 1 ? 1 : 0);
     setVisible(true);
-    // If the user releases Alt immediately after the first Tab, commit at once:
-    // remember whether Alt was held when the panel appeared, then poll.
-    m_altDownAtShow = isAltDown();
+    // If the user releases Alt immediately after the first Tab, commit at once.
     if (!m_altTimer) {
         m_altTimer = new QTimer(this);
-        m_altTimer->setInterval(200);
+        m_altTimer->setInterval(50);
         connect(m_altTimer, &QTimer::timeout, this, [this] {
             if (m_visible && m_altDownAtShow && !isAltDown())
                 commit();
         });
     }
     m_altTimer->start();
+    // Alt already released by the time we got here: commit immediately.
+    if (m_altDownAtShow && !isAltDown())
+        commit();
     // Make sure the overlay holds keyboard focus so key events reach QML.
     if (m_focusTimer) {
         m_focusTimer->stop();
@@ -528,7 +566,7 @@ void Backend::show() {
         focusSelf();
         polishWindow();
     });
-    t->start(300);
+    t->start(100);
     // Re-run after QML re-asserted the panel size (window may have been
     // resized while tiled before floating).
     QTimer::singleShot(800, this, [this] { if (m_visible) polishWindow(); });
@@ -600,10 +638,10 @@ QString Backend::handleCommand(const QString &line) {
 
     if (cmd == QStringLiteral("ping"))
         return QStringLiteral("pong\n");
-    if (cmd == QStringLiteral("show")) { show(); return QStringLiteral("ok\n"); }
+    if (cmd == QStringLiteral("show")) { m_altContext = false; show(); return QStringLiteral("ok\n"); }
     if (cmd == QStringLiteral("hide")) { hide(); return QStringLiteral("ok\n"); }
-    if (cmd == QStringLiteral("next")) { next(); return QStringLiteral("ok %1\n").arg(m_currentIndex); }
-    if (cmd == QStringLiteral("prev")) { prev(); return QStringLiteral("ok %1\n").arg(m_currentIndex); }
+    if (cmd == QStringLiteral("next")) { m_altContext = true; next(); return QStringLiteral("ok %1\n").arg(m_currentIndex); }
+    if (cmd == QStringLiteral("prev")) { m_altContext = true; prev(); return QStringLiteral("ok %1\n").arg(m_currentIndex); }
     if (cmd == QStringLiteral("select") && parts.size() > 1) {
         select(parts.at(1).toInt());
         return QStringLiteral("ok %1\n").arg(m_currentIndex);
