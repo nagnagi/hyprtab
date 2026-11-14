@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="assets/logo.svg" width="400" alt="hyprtab">
+  <img src="assets/logo.svg" width="280" alt="hyprtab">
 </h1>
 
 <p align="center">
