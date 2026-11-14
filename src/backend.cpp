@@ -543,7 +543,7 @@ void Backend::polishWindow() {
     if (!tryClassicDispatch(QStringLiteral("centerwindow")))
         focusWindowLua(QStringLiteral("hl.dsp.window.center({window=%1})").arg(w));
     // Re-assert the panel size (tiling may have resized it before floating).
-    if (!tryClassicDispatch(QStringLiteral("resizeactive"), QStringLiteral("920 300")))
+    if (!tryClassicDispatch(QStringLiteral("resizeactive"), QStringLiteral("920 212")))
         focusWindowLua(QStringLiteral("hl.dsp.window.resize({window=%1, x=920, y=300})").arg(w));
 }
 
@@ -659,6 +659,23 @@ QString Backend::handleCommand(const QString &line) {
         if (m_window)
             walk(m_window->contentItem());
         return out.isEmpty() ? QStringLiteral("(no images)\n") : out;
+    }
+    if (cmd == QStringLiteral("rects")) {
+        QString out;
+        std::function<void(QQuickItem *)> walk = [&](QQuickItem *it) {
+            const QByteArray cn = it->metaObject()->className();
+            if (cn.contains("Rectangle")) {
+                const double wd = it->property("width").toDouble();
+                const double ht = it->property("height").toDouble();
+                if (wd > 50 && wd < 500)
+                    out += QStringLiteral("%1 %2x%3\n").arg(QString::fromUtf8(cn)).arg(wd).arg(ht);
+            }
+            for (QQuickItem *c : it->childItems())
+                walk(c);
+        };
+        if (m_window)
+            walk(m_window->contentItem());
+        return out.isEmpty() ? QStringLiteral("(no rects)\n") : out;
     }
     if (cmd == QStringLiteral("screens")) {
         QString out = QStringLiteral("activeMonitor=") + m_activeMonitorName

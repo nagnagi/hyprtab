@@ -10,7 +10,7 @@ Window {
     // Not fullscreen: a fuzzel-like floating panel (float+center via Hyprland window rules).
     // Fixed size so Hyprland's tiling cannot resize the panel before it floats.
     width: Math.min(920, (root.screen ? root.screen.width : 1920) - 80)
-    height: Math.min(300, (root.screen ? root.screen.height : 1080) - 80)
+    height: Math.min(212, (root.screen ? root.screen.height : 1080) - 80)
     minimumWidth: width
     maximumWidth: width
     minimumHeight: height
@@ -42,7 +42,7 @@ Window {
         repeat: false
         onTriggered: {
             root.width = Math.min(920, (root.screen ? root.screen.width : 1920) - 80)
-            root.height = Math.min(300, (root.screen ? root.screen.height : 1080) - 80)
+            root.height = Math.min(212, (root.screen ? root.screen.height : 1080) - 80)
         }
     }
 
@@ -104,8 +104,8 @@ Window {
                     required property string monitorName
                     required property bool active
 
-                    width: 168
-                    height: ListView.view.height
+                    width: 140 // square cards
+                    height: 140
                     radius: 12
                     color: card.ListView.isCurrentItem ? "#3a6ea5"
                                                        : (ma.containsMouse ? "#26ffffff" : "#14ffffff")
@@ -118,10 +118,10 @@ Window {
 
                         Image {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 48
-                            height: 48
+                            width: 40
+                            height: 40
                             source: "image://hypricon/" + card.className + "__" + card.initialClass
-                            sourceSize: Qt.size(48, 48)
+                            sourceSize: Qt.size(40, 40)
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
                         }

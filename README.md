@@ -45,14 +45,14 @@ CLIからコマンドを送る（`hyprtab <command>`。GUIが `$XDG_RUNTIME_DIR/
 ## 表示仕様
 
 全画面オーバーレイではなく、fuzzel のように**フォーカス中モニタの中央に
-浮く小さなパネル**（デフォルト 920x300）として表示する。
+浮く小さなパネル**（デフォルト 920x212）として表示する。
 アプリ自身が表示時に float + center を hyprctl で適用するため設定なしでも浮くが、
 サイズまで固定したい場合は windowrule を推奨:
 
 ```conf
 windowrulev2 = float, class:^(hyprtab)$
 windowrulev2 = center, class:^(hyprtab)$
-windowrulev2 = size 920 300, class:^(hyprtab)$
+windowrulev2 = size 920 212, class:^(hyprtab)$
 ```
 
 パネル以外をクリックしてフォーカスが外れると、切り替えずに自動で閉じる
