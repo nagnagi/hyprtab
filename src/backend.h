@@ -46,7 +46,9 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-    void setWindows(const QVector<WindowInfo> &wins);
+    // In-place update when the window set is unchanged (avoids delegate
+    // rebuild flicker); full reset only when membership/order changes.
+    void update(const QVector<WindowInfo> &wins);
     const WindowInfo *at(int row) const;
 
 private:
@@ -57,6 +59,8 @@ class IconProvider : public QQuickImageProvider {
 public:
     IconProvider();
     QPixmap requestPixmap(const QString &id, QSize *size, const QSize &requestedSize) override;
+    // Resolves "class|initialClass" to a theme icon name or an absolute path.
+    static QString resolve(const QString &id);
 };
 
 class Backend : public QObject {
@@ -102,10 +106,13 @@ signals:
 private:
     void applyScreen();
     void polishWindow();
+    bool isAltDown();
 
     WindowModel m_model;
     QQuickWindow *m_window = nullptr;
     QTimer *m_focusTimer = nullptr;
+    QTimer *m_altTimer = nullptr;
+    bool m_altDownAtShow = false;
     QElapsedTimer m_visibleSince;
     int m_currentIndex = 0;
     bool m_visible = false;

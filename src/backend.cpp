@@ -1,5 +1,8 @@
 #include "backend.h"
 
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QJsonArray>
@@ -8,6 +11,7 @@
 #include <QProcess>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QStandardPaths>
 #include <QTimer>
 
 #include <algorithm>
@@ -52,7 +56,23 @@ QHash<int, QByteArray> WindowModel::roleNames() const {
     };
 }
 
-void WindowModel::setWindows(const QVector<WindowInfo> &wins) {
+void WindowModel::update(const QVector<WindowInfo> &wins) {
+    if (wins.size() == m_wins.size()) {
+        bool same = true;
+        for (int i = 0; i < wins.size(); ++i) {
+            if (wins[i].address != m_wins[i].address) {
+                same = false;
+                break;
+            }
+        }
+        if (same) {
+            // Only titles/flags may have changed: update in place, no reset.
+            m_wins = wins;
+            if (!m_wins.isEmpty())
+                emit dataChanged(index(0), index(m_wins.size() - 1));
+            return;
+        }
+    }
     beginResetModel();
     m_wins = wins;
     endResetModel();
@@ -68,27 +88,173 @@ const WindowInfo *WindowModel::at(int row) const {
 
 IconProvider::IconProvider() : QQuickImageProvider(QQuickImageProvider::Pixmap) {}
 
-QPixmap IconProvider::requestPixmap(const QString &id, QSize *size, const QSize &requestedSize) {
+// Looks up the Icon= entry of a .desktop file whose StartupWMClass (or file
+// name) matches the window class.
+static QString desktopFileIcon(const QString &className) {
+    const QString cls = className.toLower();
+    QStringList dirs;
+    const QString xdg = QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation);
+    if (!xdg.isEmpty())
+        dirs << xdg;
+    dirs << QStringLiteral("/usr/local/share/applications")
+         << QStringLiteral("/usr/share/applications");
+
+    for (const QString &dir : dirs) {
+        const QDir d(dir);
+        const QStringList entries = d.entryList({QStringLiteral("*.desktop")}, QDir::Files);
+        for (const QString &e : entries) {
+            QFile f(d.filePath(e));
+            if (!f.open(QIODevice::ReadOnly))
+                continue;
+            const QByteArray content = f.readAll();
+            QString iconValue;
+            bool wmMatch = false;
+            for (const QByteArray &line : content.split('\n')) {
+                if (line.startsWith("Icon="))
+                    iconValue = QString::fromUtf8(line.mid(5)).trimmed();
+                else if (line.startsWith("StartupWMClass=")) {
+                    const QString wm = QString::fromUtf8(line.mid(15)).trimmed().toLower();
+                    if (wm == cls || wm.split(QLatin1Char(';')).contains(cls))
+                        wmMatch = true;
+                }
+            }
+            const bool nameMatch = QFileInfo(e).completeBaseName().toLower() == cls;
+            if ((wmMatch || nameMatch) && !iconValue.isEmpty())
+                return iconValue;
+        }
+    }
+    return {};
+}
+
+// Case-insensitive file search inside icon theme dirs (Qt's theme lookup
+// misses mixed-case names like org.gnome.Evince).
+static QString findIconFile(const QString &name) {
+    static QHash<QString, QString> cache;
+    const auto hit = cache.constFind(name);
+    if (hit != cache.constEnd())
+        return hit.value();
+
+    const QString lower = name.toLower();
+    QStringList roots;
+    roots << QStringLiteral("/usr/share/icons")
+          << QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/icons");
+
+    QString found;
+    for (const QString &root : roots) {
+        const QDir rootDir(root);
+        if (!rootDir.exists())
+            continue;
+        const QStringList themes = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString &theme : themes) {
+            const QDir themeDir(rootDir.filePath(theme));
+            QStringList appDirs{themeDir.filePath(QStringLiteral("scalable/apps")),
+                                themeDir.filePath(QStringLiteral("symbolic/apps"))};
+            const QStringList sizes = themeDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+            for (const QString &s : sizes)
+                appDirs << themeDir.filePath(s + QStringLiteral("/apps"));
+            for (const QString &dir : appDirs) {
+                const QDir d(dir);
+                if (!d.exists())
+                    continue;
+                const QStringList files = d.entryList(QDir::Files);
+                for (const QString &file : files) {
+                    const QFileInfo fi(file);
+                    const QString suffix = fi.suffix().toLower();
+                    if (fi.completeBaseName().toLower() == lower
+                        && (suffix == QLatin1String("svg") || suffix == QLatin1String("png") || suffix == QLatin1String("xpm"))) {
+                        found = d.filePath(file);
+                        break;
+                    }
+                }
+                if (!found.isEmpty())
+                    break;
+            }
+            if (!found.isEmpty())
+                break;
+        }
+        if (!found.isEmpty())
+            break;
+    }
+    cache.insert(name, found);
+    return found;
+}
+
+QString IconProvider::resolve(const QString &id) {
+    static QHash<QString, QString> cache;
+    const auto it = cache.constFind(id);
+    if (it != cache.constEnd())
+        return it.value();
+
     const QStringList parts = id.split(QLatin1Char('|'));
-    QStringList candidates;
+    QString resolved;
+    // 1. theme icon named after the window class
     for (const QString &p : parts) {
         if (p.isEmpty())
             continue;
-        candidates << p.toLower() << p;
-    }
-    candidates << QStringLiteral("application-x-executable")
-               << QStringLiteral("window")
-               << QStringLiteral("preferences-system");
-
-    QIcon icon;
-    for (const QString &c : candidates) {
-        if (QIcon::hasThemeIcon(c)) {
-            icon = QIcon::fromTheme(c);
+        for (const QString &c : {p.toLower(), p}) {
+            if (QIcon::hasThemeIcon(c)) {
+                resolved = c;
+                break;
+            }
+        }
+        if (!resolved.isEmpty())
             break;
+    }
+    // 2. .desktop file Icon= entry matched by StartupWMClass / file name
+    if (resolved.isEmpty()) {
+        for (const QString &p : parts) {
+            if (p.isEmpty())
+                continue;
+            QStringList names{p};
+            const int dot = p.lastIndexOf(QLatin1Char('.'));
+            if (dot > 0 && dot < p.size() - 1)
+                names << p.mid(dot + 1); // "org.gnome.Evince" -> "Evince"
+            for (const QString &name : names) {
+                const QString iconValue = desktopFileIcon(name);
+                if (iconValue.isEmpty())
+                    continue;
+                if (iconValue.startsWith(QLatin1Char('/'))) {
+                    if (QFileInfo::exists(iconValue))
+                        resolved = iconValue;
+                } else if (QIcon::hasThemeIcon(iconValue)) {
+                    resolved = iconValue;
+                } else {
+                    const QString file = findIconFile(iconValue);
+                    if (!file.isEmpty())
+                        resolved = file;
+                }
+                if (!resolved.isEmpty())
+                    break;
+            }
+            if (!resolved.isEmpty())
+                break;
         }
     }
-    if (icon.isNull())
-        icon = QIcon::fromTheme(QStringLiteral("application-x-executable"));
+    // 3. direct file search by class name
+    if (resolved.isEmpty()) {
+        for (const QString &p : parts) {
+            if (p.isEmpty())
+                continue;
+            const QString file = findIconFile(p.toLower());
+            if (!file.isEmpty()) {
+                resolved = file;
+                break;
+            }
+        }
+    }
+    // 4. fallbacks
+    if (resolved.isEmpty())
+        resolved = QStringLiteral("application-x-executable");
+
+    cache.insert(id, resolved);
+    return resolved;
+}
+
+QPixmap IconProvider::requestPixmap(const QString &id, QSize *size, const QSize &requestedSize) {
+    const QString resolved = resolve(id);
+    const QIcon icon = resolved.startsWith(QLatin1Char('/'))
+                           ? QIcon(resolved)
+                           : QIcon::fromTheme(resolved, QIcon::fromTheme(QStringLiteral("application-x-executable")));
 
     const QSize sz = (requestedSize.isValid() && !requestedSize.isEmpty()) ? requestedSize : QSize(32, 32);
     if (size)
@@ -186,12 +352,16 @@ void Backend::setVisible(bool v) {
     if (m_visible == v)
         return;
     m_visible = v;
-    if (v)
+    if (v) {
         m_visibleSince.start();
-    else if (m_focusTimer) {
-        m_focusTimer->stop();
-        m_focusTimer->deleteLater();
-        m_focusTimer = nullptr;
+    } else {
+        if (m_focusTimer) {
+            m_focusTimer->stop();
+            m_focusTimer->deleteLater();
+            m_focusTimer = nullptr;
+        }
+        if (m_altTimer)
+            m_altTimer->stop();
     }
     emit visibleChanged();
 }
@@ -270,7 +440,7 @@ void Backend::refresh() {
                      [](const WindowInfo &a, const WindowInfo &b) { return a.focusHistoryId < b.focusHistoryId; });
 
     const int oldCount = m_model.rowCount();
-    m_model.setWindows(wins);
+    m_model.update(wins);
     if (m_model.rowCount() != oldCount)
         emit windowCountChanged();
 
@@ -299,6 +469,26 @@ void Backend::refresh() {
     }
 }
 
+// Hyprland >= 0.57 only: hyprctl eval does not print return values, so the
+// result is passed through a temp file. Returns false on older versions,
+// which simply disables the quick Alt-release commit.
+bool Backend::isAltDown() {
+    const QString tmp = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
+                        + QStringLiteral("/hyprtab-alt-down");
+    const QString code = QStringLiteral(
+        "local f=io.open(\"%1\",\"w\") "
+        "f:write(tostring(hl.is_key_down(\"Alt_L\") or hl.is_key_down(\"Alt_R\"))) "
+        "f:close()").arg(tmp);
+    QProcess p;
+    p.start(QStringLiteral("hyprctl"), {QStringLiteral("eval"), code});
+    if (!p.waitForStarted(1000) || !p.waitForFinished(2000) || p.exitCode() != 0)
+        return false;
+    QFile f(tmp);
+    if (!f.open(QIODevice::ReadOnly))
+        return false;
+    return f.readAll().trimmed() == "true";
+}
+
 void Backend::show() {
     refresh();
     const int n = m_model.rowCount();
@@ -309,6 +499,18 @@ void Backend::show() {
     // First Alt-Tab lands on the previously focused window (MRU index 1).
     setCurrentIndex(n > 1 ? 1 : 0);
     setVisible(true);
+    // If the user releases Alt immediately after the first Tab, commit at once:
+    // remember whether Alt was held when the panel appeared, then poll.
+    m_altDownAtShow = isAltDown();
+    if (!m_altTimer) {
+        m_altTimer = new QTimer(this);
+        m_altTimer->setInterval(200);
+        connect(m_altTimer, &QTimer::timeout, this, [this] {
+            if (m_visible && m_altDownAtShow && !isAltDown())
+                commit();
+        });
+    }
+    m_altTimer->start();
     // Make sure the overlay holds keyboard focus so key events reach QML.
     if (m_focusTimer) {
         m_focusTimer->stop();
@@ -427,6 +629,8 @@ QString Backend::handleCommand(const QString &line) {
         activate(parts.at(1));
         return QStringLiteral("ok\n");
     }
+    if (cmd == QStringLiteral("icon") && parts.size() > 1)
+        return IconProvider::resolve(parts.at(1)) + QLatin1Char('\n');
     if (cmd == QStringLiteral("screens")) {
         QString out = QStringLiteral("activeMonitor=") + m_activeMonitorName
                       + QStringLiteral(" self=") + m_selfAddress

@@ -12,6 +12,13 @@ cmake --build build -j"$(nproc)"
 # build/hyprtab が生成される。PATH の通った場所に置くか、フルパスで使う
 ```
 
+またはインストーラ（依存チェック・ビルド・`~/.local/bin` への配置・
+systemd user service の作成までを行う。サービスはデフォルトで無効）:
+
+```sh
+./install.sh
+```
+
 ## 使い方
 
 GUIプロセスを常駐させる（引数なしで起動）:
@@ -88,8 +95,16 @@ submap = reset
 - `hyprctl clients -j` を `focusHistoryID` 昇順（0が現在のフォーカス=MRU順）で
   並べ替えて一覧モデルを構築する。自分自身（app_id `hyprtab`）と
   special ワークスペースのウィンドウは除外する。
-- 表示中は500ms間隔で一覧を再取得し、選択はアドレス基準で維持する。
+- 表示中は500ms間隔で一覧を再取得する。ウィンドウ集合が同じならモデルを
+  リセットせず dataChanged のみ発行するため、一覧のちらつきが起きない。
+  選択はアドレス基準で維持する。
   フォーカスが自分以外に移って1秒以上経つと自動で閉じる（キャンセル扱い）。
+- Alt+Tabを素早く離しても切り替わる: 表示時にAltが押されているかを
+  `hl.is_key_down("Alt_L"/"Alt_R")` (Hyprland >= 0.57) で記録し、200ms間隔で
+  監視して、離されたら即座にcommitする。
+- アイコンは class 名のテーマアイコン → .desktop の Icon= (StartupWMClass /
+  ファイル名一致、ドット区切り末尾でも試行) → アイコンディレクトリ内の
+  ファイル直接検索（大文字小文字無視）の順で解決する。
 - 表示時に自分のウィンドウへフォーカスを移し（キー入力受付のため）、
   float + center + サイズ再設定を hyprctl で適用する。
 - フォーカス切替は `hyprctl dispatch focuswindow address:...` で行う。
