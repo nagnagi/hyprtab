@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 456 136" width="456" height="136" role="img" aria-labelledby="title">
+  <title id="title">HyprTab</title>
+  <style>
+    .ink { stroke: #1d2026; fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    .head { fill: #1d2026; }
+    @media (prefers-color-scheme: dark) {
+      .ink { stroke: #e8e9ec; }
+      .head { fill: #e8e9ec; }
+    }
+  </style>
+
+  <!-- Mark: two window edges with a back/forward pair of arrows, point-symmetric about (90,60) -->
+  <g class="ink">
+    <path d="M0 0V120M180 0V120"/>
+    <path d="M38 40H142M38 80H142"/>
+  </g>
+  <g class="head">
+    <path d="M0 40L38 18V62Z"/>
+    <path d="M180 80L142 58V102Z"/>
+  </g>
+
+  <!-- Wordmark: cap height 40..80 lines up with the mark's two arrows -->
+  <g class="ink">
+    <path d="M212 40V80M238 40V80M212 60H238"/>
+    <path d="M248 58L259 80M270 58L251 96"/>
+    <path d="M280 58V96"/><circle cx="291" cy="69" r="11"/>
+    <path d="M312 80V58M312 70C312 62 317 58 325 58"/>
+    <path d="M258 40H359M346 40V80"/>
+    <circle cx="368" cy="69" r="11"/><path d="M379 58V80"/>
+    <path d="M390 40V80"/><circle cx="401" cy="69" r="11"/>
+    <path d="M310 96H424"/>
+  </g>
+  <g class="head">
+    <path d="M247 40L260 32.5V47.5Z"/>
+    <path d="M437 96L424 88.5V103.5Z"/>
+  </g>
+</svg>

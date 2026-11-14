@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 196 136" width="196" height="136" role="img" aria-labelledby="title">
+  <title id="title">HyprTab</title>
+  <style>
+    .ink { stroke: #1d2026; fill: none; stroke-width: 4; stroke-linecap: round; }
+    .head { fill: #1d2026; }
+    @media (prefers-color-scheme: dark) {
+      .ink { stroke: #e8e9ec; }
+      .head { fill: #e8e9ec; }
+    }
+  </style>
+  <g class="ink">
+    <path d="M0 0V120M180 0V120"/>
+    <path d="M38 40H142M38 80H142"/>
+  </g>
+  <g class="head">
+    <path d="M0 40L38 18V62Z"/>
+    <path d="M180 80L142 58V102Z"/>
+  </g>
+</svg>
