@@ -68,6 +68,8 @@ Window {
                 model: windowModel
                 currentIndex: backend.currentIndex
                 highlightFollowsCurrentItem: true
+                highlightMoveDuration: 40
+                highlightResizeDuration: 40
                 focus: true
                 boundsBehavior: Flickable.StopAtBounds
                 spacing: 8
@@ -109,7 +111,7 @@ Window {
                     radius: 12
                     color: card.ListView.isCurrentItem ? "#3a6ea5"
                                                        : (ma.containsMouse ? "#26ffffff" : "#14ffffff")
-                    Behavior on color { ColorAnimation { duration: 80 } }
+                    Behavior on color { ColorAnimation { duration: 40 } }
 
                     Column {
                         anchors.centerIn: parent

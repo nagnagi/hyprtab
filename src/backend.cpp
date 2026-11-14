@@ -466,8 +466,10 @@ void Backend::refresh() {
 
     // The panel is a normal floating window: if focus moved elsewhere
     // (e.g. the user clicked another window), close without switching.
+    // While Alt is still held (mid Alt-Tab gesture), never auto-close.
     if (m_visible && m_visibleSince.isValid() && m_visibleSince.elapsed() > 1000
-        && !activeAddr.isEmpty() && activeAddr != m_selfAddress) {
+        && !activeAddr.isEmpty() && activeAddr != m_selfAddress
+        && !(m_altDownAtShow && isAltDown())) {
         cancel();
     }
 }
@@ -542,9 +544,8 @@ void Backend::polishWindow() {
         focusWindowLua(QStringLiteral("hl.dsp.window.float({window=%1})").arg(w));
     if (!tryClassicDispatch(QStringLiteral("centerwindow")))
         focusWindowLua(QStringLiteral("hl.dsp.window.center({window=%1})").arg(w));
-    // Re-assert the panel size (tiling may have resized it before floating).
-    if (!tryClassicDispatch(QStringLiteral("resizeactive"), QStringLiteral("920 212")))
-        focusWindowLua(QStringLiteral("hl.dsp.window.resize({window=%1, x=920, y=300})").arg(w));
+    // Size is handled by the windowrule (size 920 212) and the QML min/max
+    // size re-assert; do not dispatch a resize here (it can visibly jump).
 }
 
 void Backend::hide() { setVisible(false); }
