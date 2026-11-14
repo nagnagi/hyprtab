@@ -89,39 +89,43 @@ Then send commands from the CLI (`hyprtab <command>`):
 
 ### Hyprland configuration
 
-Add the following to `~/.config/hypr/hyprland.conf`:
+Add the following to `~/.config/hypr/hyprland.lua`:
 
-```conf
-# Start the GUI at session login
-exec-once = hyprtab
+```lua
+-- Start the GUI at session login
+hl.on("hyprland.start", function()
+  hl.exec_cmd("hyprtab")
+end)
 
-# Open the switcher with Alt+Tab and cycle with Tab
-bindr = ALT, Tab, exec, hyprtab next
-bindr = ALT, Shift, Tab, exec, hyprtab prev
-bind = ALT, Return, exec, hyprtab commit
-bind = ALT, Escape, exec, hyprtab cancel
+-- Open the switcher with Alt+Tab and cycle with Tab
+hl.bind("ALT + Tab",         hl.dsp.exec_cmd("hyprtab next"), { repeating = true })
+hl.bind("ALT + SHIFT + Tab", hl.dsp.exec_cmd("hyprtab prev"), { repeating = true })
+hl.bind("ALT + Return",      hl.dsp.exec_cmd("hyprtab commit"))
+hl.bind("ALT + Escape",      hl.dsp.exec_cmd("hyprtab cancel"))
 ```
 
 While the overlay has focus, releasing the Alt key is detected and commits the current
 selection, so a quick Alt+Tab tap switches immediately. Alternatively, use a submap:
 
-```conf
-bind = ALT, Tab, submap, hyprtab
-submap = hyprtab
-bind = , Tab, exec, hyprtab next
-bind = Shift, Tab, exec, hyprtab prev
-bind = , Return, exec, hyprtab commit
-bind = , Escape, exec, hyprtab cancel
-bind = , release, exec, hyprtab commit
-submap = reset
+```lua
+hl.bind("ALT + Tab", hl.dsp.submap("hyprtab"))
+
+hl.define_submap("hyprtab", function()
+  hl.bind("Tab",         hl.dsp.exec_cmd("hyprtab next"))
+  hl.bind("SHIFT + Tab", hl.dsp.exec_cmd("hyprtab prev"))
+  hl.bind("Return",      hl.dsp.exec_cmd("hyprtab commit"))
+  hl.bind("Escape",      hl.dsp.exec_cmd("hyprtab cancel"))
+  -- commit on release of any key (the old "bind = , release, ...")
+  hl.bind("catchall",    hl.dsp.exec_cmd("hyprtab commit"), { release = true })
+end)
 ```
 
 To pin the panel size in addition to float/center (applied automatically on show), add:
 
-```conf
-windowrulev2 = float, class:^(hyprtab)$
-windowrulev2 = center, class:^(hyprtab)$
-windowrulev2 = size 920 212, class:^(hyprtab)$
+```lua
+hl.window_rule({ match = { class = "^(hyprtab)$" }, float  = true })
+hl.window_rule({ match = { class = "^(hyprtab)$" }, center = true })
+hl.window_rule({ match = { class = "^(hyprtab)$" }, size   = "920 212" })
 ```
 
 ## License
