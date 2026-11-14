@@ -42,23 +42,33 @@ int main(int argc, char *argv[]) {
     QSurfaceFormat::setDefaultFormat(fmt);
 
     QGuiApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("hyprtab"));
+    app.setApplicationName(QStringLiteral("hyprtab")); // Wayland app_id = "hyprtab"
     app.setOrganizationName(QStringLiteral("hyprtab"));
-    app.setDesktopFileName(QStringLiteral("hyprtab.desktop")); // Wayland app_id = "hyprtab"
 
     // With arguments the binary acts as a CLI client of the GUI process.
     if (app.arguments().size() > 1)
         return sendCommand(app.arguments().mid(1));
 
+    // Single instance: if a GUI is already listening, don't steal its socket.
+    {
+        QLocalSocket probe;
+        probe.connectToServer(socketPath());
+        if (probe.waitForConnected(500)) {
+            QTextStream(stderr) << "hyprtab: GUI is already running on " << socketPath() << "\n";
+            return 0;
+        }
+    }
+
     Backend backend;
 
     QLocalServer server;
-    QLocalServer::removeServer(socketPath());
+    QLocalServer::removeServer(socketPath()); // clear a stale socket file
     if (!server.listen(socketPath())) {
         QTextStream(stderr) << "hyprtab: cannot listen on " << socketPath() << ": "
                             << server.errorString() << "\n";
         return 2;
     }
+    QTextStream(stderr) << "hyprtab: GUI listening on " << socketPath() << "\n";
     QObject::connect(&server, &QLocalServer::newConnection, &backend, [&] {
         while (QLocalSocket *client = server.nextPendingConnection()) {
             client->waitForReadyRead(500);

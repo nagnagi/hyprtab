@@ -43,9 +43,9 @@ CLIからコマンドを送る（`hyprtab <command>`。GUIが `$XDG_RUNTIME_DIR/
 サイズまで固定したい場合は windowrule を推奨:
 
 ```conf
-windowrulev2 = float, class:^(hyprtab.desktop)$
-windowrulev2 = center, class:^(hyprtab.desktop)$
-windowrulev2 = size 920 300, class:^(hyprtab.desktop)$
+windowrulev2 = float, class:^(hyprtab)$
+windowrulev2 = center, class:^(hyprtab)$
+windowrulev2 = size 920 300, class:^(hyprtab)$
 ```
 
 パネル以外をクリックしてフォーカスが外れると、切り替えずに自動で閉じる
@@ -86,7 +86,7 @@ submap = reset
 ## 仕組み
 
 - `hyprctl clients -j` を `focusHistoryID` 昇順（0が現在のフォーカス=MRU順）で
-  並べ替えて一覧モデルを構築する。自分自身（app_id `hyprtab.desktop`）と
+  並べ替えて一覧モデルを構築する。自分自身（app_id `hyprtab`）と
   special ワークスペースのウィンドウは除外する。
 - 表示中は500ms間隔で一覧を再取得し、選択はアドレス基準で維持する。
   フォーカスが自分以外に移って1秒以上経つと自動で閉じる（キャンセル扱い）。

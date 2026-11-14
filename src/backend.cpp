@@ -147,13 +147,13 @@ void Backend::applyScreen() {
     }
 }
 
-// Grabs keyboard focus for the overlay itself (Wayland app_id "hyprtab.desktop").
+// Grabs keyboard focus for the overlay itself (Wayland app_id "hyprtab").
 static void focusSelf() {
-    if (tryClassicFocus(QStringLiteral("class:hyprtab.desktop")))
+    if (tryClassicFocus(QStringLiteral("class:hyprtab")))
         return;
     QProcess::startDetached(QStringLiteral("hyprctl"), {QStringLiteral("eval"),
         QStringLiteral("for _,w in ipairs(hl.get_windows()) do "
-                       "if w.class==\"hyprtab.desktop\" then hl.dispatch(hl.dsp.focus({window=w})) end end")});
+                       "if w.class==\"hyprtab\" then hl.dispatch(hl.dsp.focus({window=w})) end end")});
 }
 
 WindowModel *Backend::model() const {
@@ -248,7 +248,7 @@ void Backend::refresh() {
         w.title = o.value(QStringLiteral("title")).toString();
         w.className = o.value(QStringLiteral("class")).toString();
         w.initialClass = o.value(QStringLiteral("initialClass")).toString();
-        if (w.className == QLatin1String("hyprtab.desktop")) {
+        if (w.className == QLatin1String("hyprtab")) {
             m_selfAddress = w.address;
             m_selfFloating = o.value(QStringLiteral("floating")).toBool();
             continue; // ourselves
