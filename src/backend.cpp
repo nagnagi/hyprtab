@@ -9,12 +9,14 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
+#include <QQuickItem>
 #include <QQuickWindow>
 #include <QScreen>
 #include <QStandardPaths>
 #include <QTimer>
 
 #include <algorithm>
+#include <functional>
 
 // ---------------------------------------------------------------------------
 // WindowModel
@@ -185,7 +187,8 @@ QString IconProvider::resolve(const QString &id) {
     if (it != cache.constEnd())
         return it.value();
 
-    const QStringList parts = id.split(QLatin1Char('|'));
+    // NB: "|" would be percent-encoded (%7C) in the image:// URL, so use "__".
+    const QStringList parts = id.split(QStringLiteral("__"));
     QString resolved;
     // 1. theme icon named after the window class
     for (const QString &p : parts) {
@@ -631,6 +634,32 @@ QString Backend::handleCommand(const QString &line) {
     }
     if (cmd == QStringLiteral("icon") && parts.size() > 1)
         return IconProvider::resolve(parts.at(1)) + QLatin1Char('\n');
+    if (cmd == QStringLiteral("iconpix") && parts.size() > 1) {
+        IconProvider prov;
+        QSize sz;
+        const QPixmap pm = prov.requestPixmap(parts.at(1), &sz, QSize(48, 48));
+        return QStringLiteral("%1 null=%2 %3x%4\n")
+            .arg(IconProvider::resolve(parts.at(1))).arg(pm.isNull()).arg(pm.width()).arg(pm.height());
+    }
+    if (cmd == QStringLiteral("images")) {
+        QString out;
+        const char *statusNames[] = {"Null", "Ready", "Loading", "Error"};
+        std::function<void(QQuickItem *)> walk = [&](QQuickItem *it) {
+            const QByteArray cn = it->metaObject()->className();
+            if (cn.contains("Image")) {
+                const int st = it->property("status").toInt();
+                out += QString::fromUtf8(cn) + " src=" + it->property("source").toString()
+                       + " status=" + (st >= 0 && st <= 3 ? statusNames[st] : "?")
+                       + " painted=" + it->property("paintedWidth").toString() + "x" + it->property("paintedHeight").toString()
+                       + QLatin1Char('\n');
+            }
+            for (QQuickItem *c : it->childItems())
+                walk(c);
+        };
+        if (m_window)
+            walk(m_window->contentItem());
+        return out.isEmpty() ? QStringLiteral("(no images)\n") : out;
+    }
     if (cmd == QStringLiteral("screens")) {
         QString out = QStringLiteral("activeMonitor=") + m_activeMonitorName
                       + QStringLiteral(" self=") + m_selfAddress

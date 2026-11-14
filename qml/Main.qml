@@ -59,18 +59,10 @@ Window {
             anchors.margins: 16
             spacing: 10
 
-            Text {
-                id: header
-                text: "ウィンドウを切り替え (" + windowModel.rowCount + ")"
-                color: "#e8ecf1"
-                font.pixelSize: 16
-                font.bold: true
-            }
-
             ListView {
                 id: listView
                 width: parent.width
-                height: parent.height - header.height - footer.height - parent.spacing * 2
+                height: parent.height - footer.height - parent.spacing
                 clip: true
                 orientation: ListView.Horizontal
                 model: windowModel
@@ -128,7 +120,7 @@ Window {
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: 48
                             height: 48
-                            source: "image://hypricon/" + card.className + "|" + card.initialClass
+                            source: "image://hypricon/" + card.className + "__" + card.initialClass
                             sourceSize: Qt.size(48, 48)
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
