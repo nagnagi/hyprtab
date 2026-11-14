@@ -54,3 +54,10 @@ compile_commands.json
 *creator.user*
 
 *_qmlcache.qrc
+
+# makepkg artifacts
+*.pkg.tar.zst
+*.pkg.tar.xz
+/hyprtab/
+src/
+pkg/
