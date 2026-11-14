@@ -10,7 +10,7 @@ Window {
     // Not fullscreen: a fuzzel-like floating panel (float+center via Hyprland window rules).
     // Fixed size so Hyprland's tiling cannot resize the panel before it floats.
     width: Math.min(920, (root.screen ? root.screen.width : 1920) - 80)
-    height: Math.min(212, (root.screen ? root.screen.height : 1080) - 80)
+    height: Math.min(172, (root.screen ? root.screen.height : 1080) - 80)
     minimumWidth: width
     maximumWidth: width
     minimumHeight: height
@@ -42,7 +42,7 @@ Window {
         repeat: false
         onTriggered: {
             root.width = Math.min(920, (root.screen ? root.screen.width : 1920) - 80)
-            root.height = Math.min(212, (root.screen ? root.screen.height : 1080) - 80)
+            root.height = Math.min(172, (root.screen ? root.screen.height : 1080) - 80)
         }
     }
 
@@ -62,7 +62,7 @@ Window {
             ListView {
                 id: listView
                 width: parent.width
-                height: parent.height - footer.height - parent.spacing
+                height: parent.height
                 clip: true
                 orientation: ListView.Horizontal
                 model: windowModel
@@ -166,13 +166,6 @@ Window {
                         }
                     }
                 }
-            }
-
-            Text {
-                id: footer
-                text: "Tab / Shift+Tab: 選択移動    Enter: 決定    Esc: キャンセル    Altを離す: 決定"
-                color: "#9aa4b0"
-                font.pixelSize: 12
             }
         }
     }
