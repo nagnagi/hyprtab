@@ -1,9 +1,27 @@
-# hyprtab
+<h1 align="center">
+  hyprtab
+</h1>
 
-An Alt-Tab style window switcher for [Hyprland](https://hyprland.org/), built with Qt6/QML.
-A small overlay panel lists your windows side by side, and selecting one moves focus to it.
+<p align="center">
+  An Alt-Tab style window switcher for Hyprland, built with Qt6/QML
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Hyprland-0.57%2B-00d1ff?logo=hyprland&logoColor=white" alt="Hyprland 0.57+">
+  <img src="https://img.shields.io/badge/Qt-6.5%2B-41cd52?logo=qt&logoColor=white" alt="Qt 6.5+">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
+</p>
+
+```console
+$ hyprtab list
+0	0x5588a1b2c3d0	kitty	nag@desktop: ~
+1	0x5588a1c04e10	firefox	GitHub - nagnagi/hyprtab
+2	0x5588a1d55f20	org.telegram.desktop	Telegram
+```
 
 ## Installation
+
+You need Hyprland 0.57 or later, Qt6 (Quick/QML), CMake, and a C++20 compiler.
 
 ### From the AUR
 
@@ -13,20 +31,23 @@ paru -S hyprtab
 
 ### Using the installer script
 
-`install.sh` checks dependencies, builds the binary, installs it to `~/.local/bin/hyprtab`,
-and creates a (disabled by default) systemd user service:
+```sh
+git clone https://github.com/nagnagi/hyprtab.git
+cd hyprtab
+./install.sh
+```
+
+`install.sh` checks the dependencies, builds the binary, installs it to
+`~/.local/bin/hyprtab`, and creates a systemd user service (left disabled by default).
+To start it at login:
 
 ```sh
-./install.sh
+systemctl --user enable --now hyprtab.service
 ```
 
 ### Building from source
 
-Requirements: CMake, a C++20 compiler, Qt6 (Quick/QML), and Hyprland.
-
 ```sh
-git clone https://github.com/nagnagi/hyprtab.git
-cd hyprtab
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j"$(nproc)"
 # build/hyprtab is the resulting binary; put it on your PATH or invoke it by full path
@@ -34,31 +55,25 @@ cmake --build build -j"$(nproc)"
 
 ## Features
 
-- Alt-Tab style MRU (most-recently-used) window list shown as a compact panel centered on the focused monitor (default 920x212), not a full-screen overlay
+- Shows the MRU (most-recently-used) window list as a compact panel centered on the focused monitor (default 920x212), not a full-screen overlay
 - Keyboard-driven: hold Alt, press Tab to cycle, release Alt (or press Enter) to switch
 - Mouse support: click a card to select and commit
 - Live refresh while open (every 500 ms) without flicker; the selection is preserved by window address
 - Auto-cancel: clicking outside the panel or losing focus for over a second closes it without switching
 - Window icons resolved from the icon theme, `.desktop` `Icon=` entries, or direct icon-directory lookup
-- Self window is hidden from the list, and windows on special workspaces are excluded
+- The switcher's own window and windows on special workspaces are excluded from the list
 - Focus switching via `hyprctl dispatch focuswindow`, with a fallback for the Lua-based `hyprctl` of Hyprland >= 0.57
 - IPC over a Unix socket at `$XDG_RUNTIME_DIR/hyprtab.sock`
 
 ## Usage
 
-Run the GUI process in the background (no arguments):
+Run the GUI process in the background (no arguments), or via the systemd user service:
 
 ```sh
 hyprtab &
 ```
 
-or via the systemd user service:
-
-```sh
-systemctl --user enable --now hyprtab.service
-```
-
-Send commands from the CLI (`hyprtab <command>`):
+Then send commands from the CLI (`hyprtab <command>`):
 
 | Command | Action |
 |---|---|
@@ -68,11 +83,11 @@ Send commands from the CLI (`hyprtab <command>`):
 | `commit` | Focus the selected window and close |
 | `cancel` / `hide` | Close without changing focus |
 | `activate <address>` | Focus a window directly, bypassing the GUI |
-| `list` | Print the MRU-ordered list to stdout (debug) |
+| `list` | Print the MRU-ordered list as TSV (debug) |
 | `refresh` | Re-fetch the window list |
 | `ping` | Health check (replies `pong`) |
 
-### Hyprland configuration example
+### Hyprland configuration
 
 Add the following to `~/.config/hypr/hyprland.conf`:
 
@@ -116,5 +131,11 @@ windowrulev2 = size 920 212, class:^(hyprtab)$
 ## Contributing
 
 Issues and pull requests are welcome at <https://github.com/nagnagi/hyprtab>.
-Please keep changes minimal and match the existing code style. For bug reports, include
-your Hyprland version (`hyprctl version`), Qt version, and the output of `hyprtab list`.
+Before you open a pull request, make sure the project builds cleanly and the switcher
+still works on your Hyprland session:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j"$(nproc)"
+./build/hyprtab ping   # -> pong
+```
